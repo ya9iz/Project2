@@ -1,7 +1,7 @@
 pandas
 numpy
 scikit-learn
-plotly
+plotly~=4.14.3
 nltk
 flask
 sqlalchemy
