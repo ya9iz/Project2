@@ -1,24 +1,103 @@
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+from sklearn.model_selection import GridSearchCV
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import word_tokenize
+from sklearn.pipeline import Pipeline
+from sqlalchemy import create_engine
+
+import pandas as pd
+import numpy as np
+import pickle
+import nltk
 import sys
+nltk.download(['punkt','wordnet'])
 
 
 def load_data(database_filepath):
-    pass
+    """load data from the sqlite database"""
+
+    # Read the table as pandas dataframe
+    engine = create_engine('sqlite:///{}'.format(database_filepath))
+    df = pd.read_sql_table('messages', con=engine)
+
+    # Split the dataframe into x and y
+    X = df['message']
+    Y = df.drop(columns=['id', 'message', 'original', 'genre'])
+
+    # Get the label names
+    category_names = Y.columns
+
+    return X, Y, category_names
 
 
 def tokenize(text):
-    pass
+    """Tokenize and lemmatize each word in a given text"""
+
+    # Tokenize the string text and initiate the lemmatizer
+    tokens = word_tokenize(text)
+    lemmatizer = WordNetLemmatizer()
+
+    # Lemmatize each word in tokens
+    clean_tokens = []
+    for tok in tokens:
+        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
+        clean_tokens.append(clean_tok)
+
+    return clean_tokens
 
 
 def build_model():
-    pass
+    """Create a machine learning pipeline"""
+
+    # Create a pipeline consists of CountVectorizer, TfidfTransformer, RandomForestClassifier
+    pipeline = Pipeline([
+
+        ('text_pipeline', Pipeline([
+            ('vect', CountVectorizer(tokenizer=tokenize)),
+            ('tfidf', TfidfTransformer())
+        ])),
+
+        ('clf', RandomForestClassifier())
+    ])
+
+    # Find the optimal model using GridSearchCV
+    # define parameters for GridSearchCV
+    parameters = {
+        'text_pipeline__tfidf__use_idf': (True, False),
+        'clf__n_estimators': [50, 100, 200],
+        'clf__min_samples_split': [2, 3, 4]
+    }
+
+    cv = GridSearchCV(pipeline, param_grid=parameters)
+
+    return cv
 
 
-def evaluate_model(model, X_test, Y_test, category_names):
-    pass
+def evaluate_model(model, X_test, Y_test):
+    """Display model evaluation"""
+
+    # Predict the given X_test
+    Y_pred = model.predict(X_test)
+
+    # Evaluate model
+    acc = []
+    for i in range(len(Y_test.columns)):
+        score = accuracy_score(Y_test.values[:, i], Y_pred[:, i])
+        print('Column {} has score =   {}'.format(Y_test.columns[i], score))
+        acc.append(score)
+    print(acc)
 
 
 def save_model(model, model_filepath):
-    pass
+    """Save the given model into pickle object"""
+
+    # Save the model based on model_filepath given
+    pkl_filename = '{}'.format(model_filepath)
+    with open(pkl_filename, 'wb') as file:
+        pickle.dump(model, file)
 
 
 def main():
@@ -35,7 +114,7 @@ def main():
         model.fit(X_train, Y_train)
         
         print('Evaluating model...')
-        evaluate_model(model, X_test, Y_test, category_names)
+        evaluate_model(model, X_test, Y_test)
 
         print('Saving model...\n    MODEL: {}'.format(model_filepath))
         save_model(model, model_filepath)
