@@ -82,13 +82,8 @@ def evaluate_model(model, X_test, Y_test):
     # Predict the given X_test
     Y_pred = model.predict(X_test)
 
-    # Evaluate model
-    acc = []
-    for i in range(len(Y_test.columns)):
-        score = accuracy_score(Y_test.values[:, i], Y_pred[:, i])
-        print('Column {} has score =   {}'.format(Y_test.columns[i], score))
-        acc.append(score)
-    print(acc)
+    # Create the report based on the Y_pred
+    print(classification_report(Y_test, Y_pred, target_names=category_names))
 
 
 def save_model(model, model_filepath):
